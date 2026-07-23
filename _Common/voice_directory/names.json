@@ -1,0 +1,27 @@
+{
+  "1": {
+    "name": "Flavio Tartero",
+    "confidence": "certa",
+    "last_seen": "2026-07-20"
+  },
+  "2": {
+    "name": "Giacomo Tartero",
+    "confidence": "certa",
+    "last_seen": "2026-07-18"
+  },
+  "3": {
+    "name": "Laura Cazzaniga",
+    "confidence": "presunta",
+    "last_seen": "2026-07-20"
+  },
+  "4": {
+    "name": "Davide Malagoli",
+    "confidence": "presunta",
+    "last_seen": "2026-07-20"
+  },
+  "5": {
+    "name": "Andrea Calveri",
+    "confidence": "presunta",
+    "last_seen": "2026-07-22"
+  }
+}

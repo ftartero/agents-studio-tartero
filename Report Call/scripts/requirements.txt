@@ -1,0 +1,6 @@
+soundcard>=0.4.3
+numpy
+faster-whisper>=1.1
+resemblyzer
+keyboard>=0.13; sys_platform == "win32"
+pynput>=1.7.6; sys_platform != "win32"
