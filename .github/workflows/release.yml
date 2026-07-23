@@ -103,11 +103,11 @@ jobs:
           RANGE="$PREV..HEAD"
           [ -z "$PREV" ] && RANGE="HEAD"     # prima release della linea
 
+          # Titolo = tag con la '/' sostituita da '_' (es. report-call_v1.0.0)
+          TITLE="${TAG//\//_}"
           if [ "$SLUG" = "studio" ]; then
-            TITLE="Studio Tartero $TAG — snapshot completo"
             COMMITS="$(git log --no-merges --pretty='- %s (%h)' "$RANGE")"
           else
-            TITLE="$FOLDER — $TAG"
             # solo i commit che toccano la cartella dell'agente o _Common
             COMMITS="$(git log --no-merges --pretty='- %s (%h)' "$RANGE" -- "$FOLDER" "_Common")"
           fi
