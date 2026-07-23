@@ -73,3 +73,12 @@ filtrato sulla sua cartella.
 
 Suggerimento: prefissa i commit con l'area (`Gare:`, `Normativa:`, `Report Call:`…)
 così il changelog di ogni release resta pulito e leggibile.
+
+### Changelog per agente
+
+Ogni agente ha un proprio `CHANGELOG.md` nella sua cartella (es.
+`Gare/CHANGELOG.md`), tenuto a mano: è il registro discorsivo delle modifiche
+per versione, complementare alle note auto-generate delle release. Vive dentro
+la cartella dell'agente, quindi viene incluso automaticamente nell'archivio
+allegato alla sua release. Quando rilasci una nuova versione, aggiungi in cima
+la voce corrispondente prima di creare il tag.
