@@ -1,12 +1,21 @@
 name: Release
 
-# Crea automaticamente una GitHub Release ogni volta che viene pushato
-# un tag nel formato v* (es. v1.0.0). Le note della release vengono
-# generate automaticamente a partire dai commit e dalle modifiche.
+# Crea una GitHub Release in due modi:
+#  1. automaticamente al push di un tag v* (es. v1.0.0), tipicamente dal
+#     computer locale;
+#  2. manualmente, avviando il workflow da GitHub (Actions -> Release -> Run
+#     workflow) e indicando la versione: in questo caso l'Action crea sia il
+#     tag sia la release.
+# Le note della release vengono generate automaticamente dai commit.
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versione da rilasciare (es. v1.0.0)'
+        required: true
 
 permissions:
   contents: write
@@ -20,10 +29,22 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Determina il tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "name=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Crea la Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" \
-            --title "${GITHUB_REF_NAME}" \
+          # gh release create crea anche il tag se non esiste ancora,
+          # puntandolo al commit corrente.
+          gh release create "${{ steps.tag.outputs.name }}" \
+            --target "${GITHUB_SHA}" \
+            --title "${{ steps.tag.outputs.name }}" \
             --generate-notes
