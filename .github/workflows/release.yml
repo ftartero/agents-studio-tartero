@@ -1,20 +1,45 @@
 name: Release
 
-# Crea una GitHub Release in due modi:
-#  1. automaticamente al push di un tag v* (es. v1.0.0), tipicamente dal
-#     computer locale;
-#  2. manualmente, avviando il workflow da GitHub (Actions -> Release -> Run
-#     workflow) e indicando la versione: in questo caso l'Action crea sia il
-#     tag sia la release.
-# Le note della release vengono generate automaticamente dai commit.
+# Crea una GitHub Release PER SINGOLO AGENTE.
+#
+# I tag usano il formato  <slug-agente>/vX.Y.Z  (es. gare/v1.1.0,
+# report-call/v2.0.0). Ogni agente ha così la sua linea di versioni
+# indipendente e un changelog che contiene SOLO le modifiche alla sua
+# cartella (più le risorse condivise in _Common).
+#
+# Slug disponibili: gare, normativa, guide-software, letteratura-tecnica,
+#                   lavori, prezziari, report-call.
+# In più: "studio" per uno snapshot completo di tutti gli agenti insieme
+#         (tag globale vX.Y.Z, changelog dell'intero repository).
+#
+# Due modi per rilasciare:
+#  1. push di un tag dal computer locale:
+#       git tag gare/v1.1.0 && git push origin gare/v1.1.0
+#  2. avvio manuale da GitHub (Actions -> Release -> Run workflow):
+#       scegli l'agente dal menu e indica la versione; l'Action crea sia il
+#       tag sia la release.
 on:
   push:
     tags:
-      - 'v*'
+      - '*/v*'   # tag per-agente: gare/v1.0.0, report-call/v2.1.0, ...
+      - 'v*'     # snapshot globale: v1.0.0
   workflow_dispatch:
     inputs:
+      agente:
+        description: 'Agente da rilasciare'
+        required: true
+        type: choice
+        options:
+          - gare
+          - normativa
+          - guide-software
+          - letteratura-tecnica
+          - lavori
+          - prezziari
+          - report-call
+          - studio (snapshot completo)
       version:
-        description: 'Versione da rilasciare (es. v1.0.0)'
+        description: 'Versione (es. v1.0.0)'
         required: true
 
 permissions:
@@ -27,24 +52,82 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0   # serve tutta la storia per il changelog
 
-      - name: Determina il tag
-        id: tag
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "name=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Crea la Release
+      - name: Prepara e pubblica la release
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_AGENTE: ${{ github.event.inputs.agente }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
         run: |
-          # gh release create crea anche il tag se non esiste ancora,
-          # puntandolo al commit corrente.
-          gh release create "${{ steps.tag.outputs.name }}" \
-            --target "${GITHUB_SHA}" \
-            --title "${{ steps.tag.outputs.name }}" \
-            --generate-notes
+          set -euo pipefail
+
+          # --- 1. Determina il TAG da rilasciare ---------------------------
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            case "$INPUT_AGENTE" in
+              "studio (snapshot completo)") TAG="$INPUT_VERSION" ;;
+              *)                            TAG="$INPUT_AGENTE/$INPUT_VERSION" ;;
+            esac
+          else
+            TAG="$GITHUB_REF_NAME"
+          fi
+          echo "Tag: $TAG"
+
+          # --- 2. Ricava slug agente, cartella e prefisso dei tag ----------
+          if printf '%s' "$TAG" | grep -q '/'; then
+            SLUG="${TAG%/*}"          # es. gare
+            PREFIX="$SLUG/v"          # linea di versioni di quell'agente
+          else
+            SLUG="studio"             # snapshot globale
+            PREFIX="v"
+          fi
+
+          case "$SLUG" in
+            gare)                FOLDER="Gare" ;;
+            normativa)           FOLDER="Normativa" ;;
+            guide-software)      FOLDER="Guide Software" ;;
+            letteratura-tecnica) FOLDER="Letteratura Tecnica" ;;
+            lavori)              FOLDER="Lavori" ;;
+            prezziari)           FOLDER="Prezziari" ;;
+            report-call)         FOLDER="Report Call" ;;
+            studio)              FOLDER="" ;;   # intero repository
+            *) echo "::error::Slug agente sconosciuto: '$SLUG'"; exit 1 ;;
+          esac
+
+          # --- 3. Trova il tag precedente della STESSA linea ---------------
+          PREV="$(git tag --list "${PREFIX}*" --sort=-v:refname \
+                    | grep -vxF "$TAG" | head -n1 || true)"
+
+          # --- 4. Costruisci il changelog filtrato per cartella ------------
+          RANGE="$PREV..HEAD"
+          [ -z "$PREV" ] && RANGE="HEAD"     # prima release della linea
+
+          if [ "$SLUG" = "studio" ]; then
+            TITLE="Studio Tartero $TAG — snapshot completo"
+            COMMITS="$(git log --no-merges --pretty='- %s (%h)' "$RANGE")"
+          else
+            TITLE="$FOLDER — $TAG"
+            # solo i commit che toccano la cartella dell'agente o _Common
+            COMMITS="$(git log --no-merges --pretty='- %s (%h)' "$RANGE" -- "$FOLDER" "_Common")"
+          fi
+          [ -z "$COMMITS" ] && COMMITS="- (nessuna modifica specifica registrata)"
+
+          # --- 5. Corpo della release --------------------------------------
+          {
+            echo "## $TITLE"
+            echo ""
+            if [ -n "$PREV" ]; then
+              echo "Modifiche da \`$PREV\`:"
+            else
+              echo "Prima release di questa linea."
+            fi
+            echo ""
+            echo "$COMMITS"
+          } > release-notes.md
+
+          # --- 6. Crea la release (crea anche il tag se non esiste) --------
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --title "$TITLE" \
+            --notes-file release-notes.md

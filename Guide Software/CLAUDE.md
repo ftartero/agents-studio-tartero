@@ -14,17 +14,18 @@ Rispondi sempre nella lingua in cui ti scrive l'utente (italiano se non specific
 ## ARCHITETTURA
 
 ```
-Agente Guide Software\   ← cartella di progetto montata nella sessione
- ├── CLAUDE.md          ← questo file
- ├── .claude\
- │    └── skills\
- │         └── ricerca-fonti-locali\SKILL.md  ← skill di progetto (worker di ricerca)
- ├── context\
- │    └── MEMORY.md     ← catalogo manuali, procedure ricorrenti, errata, preferenze
- ├── guide\             ← manuali di riferimento (sola lettura)
- │    └── <Software>\... ← una sottocartella per software
- └── output\
-      └── [file generati] ← documenti prodotti dall'agente
+Progetti\                         ← contiene i progetti-agente e le risorse condivise
+ ├── _Common\                     ← risorse condivise tra agenti (ACCANTO al progetto)
+ │    └── .claude\skills\
+ │         └── ricerca-fonti-locali\SKILL.md ← skill condivisa (worker di ricerca)
+ └── Agente Guide Software\        ← cartella di progetto montata nella sessione
+      ├── CLAUDE.md               ← questo file
+      ├── context\
+      │    └── MEMORY.md          ← catalogo manuali, procedure ricorrenti, errata, preferenze
+      ├── guide\                  ← manuali di riferimento (sola lettura)
+      │    └── <Software>\...     ← una sottocartella per software
+      └── output\
+           └── [file generati]    ← documenti prodotti dall'agente
 ```
 
 **Fonti di conoscenza:**
@@ -51,7 +52,7 @@ Il **default è la lettura diretta con bash**: per una domanda su un singolo sof
 
 Fa eccezione **una sola situazione**: le **ricerche multi-manuale** (confronti tra software, ricerche larghe del tipo "in quale software si fa X", "cerca in tutti i manuali"). Solo in quel caso conviene il fan-out parallelo (vedi `§ RICERCA MULTI-MANUALE`), che dispaccia più worker in sola lettura, uno per manuale/software:
 
-- `ricerca-fonti-locali` → **skill di progetto**, in `.claude\skills\ricerca-fonti-locali\SKILL.md` (non è più una skill di plugin: si invoca con il nome semplice, senza prefisso `studio-tartero:`). Worker `bash` che cerca un argomento in un insieme di file locali montati (PDF/EPUB) e restituisce i **passaggi citati** (titolo/pagina/sezione). Modello: **haiku**.
+- `ricerca-fonti-locali` → **skill condivisa**, in `..\_Common\.claude\skills\ricerca-fonti-locali\SKILL.md` (una sola copia, condivisa con gli agenti Normativa e Letteratura Tecnica; non è una skill di plugin). Worker `bash` che cerca un argomento in un insieme di file locali montati (PDF/EPUB) e restituisce i **passaggi citati** (titolo/pagina/sezione). Modello: **haiku**.
 
 Per gli **output formattati** (`.docx`, `.xlsx`, `.pdf`) carica la skill `studio-tartero:brand-studio` (questa resta una skill di plugin, con prefisso).
 
@@ -61,7 +62,7 @@ Per gli **output formattati** (`.docx`, `.xlsx`, `.pdf`) carica la skill `studio
 
 > **Nota Cowork.** In Cowork i subagenti definiti come file di progetto in `.claude/agents/` non vengono registrati come agent type invocabili. Perciò il worker è un'istanza del tipo built-in `general-purpose`, dispacciata via Task con il modello come parametro e la skill indicata nel prompt. Il worker `bash` legge la stessa cartella `guide` montata nella sessione.
 >
-> **Skill di progetto.** Le skill di questo agente stanno in `.claude\skills\` dentro la cartella di progetto, non in un plugin. Se una skill di progetto non risulta registrata come invocabile nella sessione, passa al worker il **percorso del suo `SKILL.md`** (`.claude/skills/ricerca-fonti-locali/SKILL.md`, leggibile da bash) chiedendogli di leggerlo e seguirlo.
+> **Skill condivisa.** La skill `ricerca-fonti-locali` è **condivisa** e vive in `_Common`, accanto alla cartella di progetto (`..\_Common\.claude\skills\ricerca-fonti-locali\SKILL.md`; il percorso relativo `../_Common/...` vale identico su Windows e Mac, come per `voice_directory`). Non è registrata come skill invocabile nella sessione: passa al worker il **percorso del suo `SKILL.md`** (`../_Common/.claude/skills/ricerca-fonti-locali/SKILL.md`, leggibile da bash) chiedendogli di leggerlo e seguirlo.
 
 ---
 
@@ -251,7 +252,7 @@ Procedura per confronti tra software e ricerche larghe (più manuali). **Non** u
 
 | Worker             | Chiamata                                | Skill                                | Input da passare                                        |
 | ------------------ | --------------------------------------- | ------------------------------------ | ------------------------------------------------------- |
-| Ricerca (per file) | `Task(general-purpose, model="haiku")`  | `ricerca-fonti-locali`| percorso/i del manuale; argomento/parole chiave; titolo citabile (da MEMORY.md) |
+| Ricerca (per file) | `Task(general-purpose, model="haiku")`  | `../_Common/.claude/skills/ricerca-fonti-locali/SKILL.md` (skill condivisa) | percorso/i del manuale; argomento/parole chiave; titolo citabile (da MEMORY.md) |
 
 Ogni worker cerca con `bash` (`grep`/`pdftotext`/`unzip`), estrae **solo** i passaggi pertinenti e li restituisce **citati** (titolo del manuale da MEMORY.md + pagina/sezione). Non carica interi manuali, non riassume opere intere, non scrive nulla.
 

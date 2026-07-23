@@ -17,18 +17,19 @@ Rispondi sempre nella lingua in cui ti scrive l'utente (italiano se non specific
 ## ARCHITETTURA
 
 ```
-Agente Letteratura Tecnica\  ← cartella di progetto montata nella sessione
- ├── CLAUDE.md          ← questo file
- ├── .claude\
- │    └── skills\
- │         └── ricerca-fonti-locali\ ← skill del worker di ricerca (skill di progetto)
- ├── context\
- │    ├── MEMORY.md     ← catalogo testi, nozioni ricorrenti, errata, preferenze
- │    └── GLOSSARIO.md  ← termini tecnici, sinonimi e abbreviazioni (sola lettura)
- ├── biblioteca\        ← testi di riferimento (sola lettura)
- │    └── <disciplina>\... ← una sottocartella per disciplina
- └── output\
-      └── [YYYY-MM-DD]\ ← documenti prodotti dall'agente
+Progetti\                          ← contiene i progetti-agente e le risorse condivise
+ ├── _Common\                      ← risorse condivise tra agenti (ACCANTO al progetto)
+ │    └── .claude\skills\
+ │         └── ricerca-fonti-locali\SKILL.md ← skill condivisa (worker di ricerca)
+ └── Agente Letteratura Tecnica\    ← cartella di progetto montata nella sessione
+      ├── CLAUDE.md                ← questo file
+      ├── context\
+      │    ├── MEMORY.md           ← catalogo testi, nozioni ricorrenti, errata, preferenze
+      │    └── GLOSSARIO.md        ← termini tecnici, sinonimi e abbreviazioni (sola lettura)
+      ├── biblioteca\              ← testi di riferimento (sola lettura)
+      │    └── <disciplina>\...    ← una sottocartella per disciplina
+      └── output\
+           └── [YYYY-MM-DD]\       ← documenti prodotti dall'agente
 ```
 
 **Fonti di conoscenza:**
@@ -66,9 +67,9 @@ Il **default è la lettura diretta con bash**: per una domanda su un singolo tes
 
 Fa eccezione **una sola situazione**: le **ricerche multi-testo** (ricerca semantica su tutta la biblioteca, confronto tra impostazioni di autori/edizioni diverse, ricerche larghe che toccano più testi). Solo in quel caso conviene il fan-out parallelo (vedi `§ RICERCA MULTI-TESTO`), che dispaccia più worker in sola lettura, uno per testo:
 
-- `ricerca-fonti-locali` → worker `bash` che cerca un argomento in un insieme di file locali montati (PDF/EPUB/DOCX) e restituisce i **passaggi citati** (titolo/pagina o capitolo-sezione). Modello: **haiku**.
+- `ricerca-fonti-locali` → **skill condivisa** in `..\_Common\.claude\skills\ricerca-fonti-locali\SKILL.md` (una sola copia, condivisa con gli agenti Guide Software e Normativa). Worker `bash` che cerca un argomento in un insieme di file locali montati (PDF/EPUB/DOCX) e restituisce i **passaggi citati** (titolo/pagina o capitolo-sezione). Modello: **haiku**.
 
-**Dove stanno le skill.** Le skill di questo progetto sono **file locali nella cartella `.claude/skills/`** della cartella di progetto (**non** più dentro il plugin): si invocano con il **nome semplice, senza prefisso di plugin** (es. `ricerca-fonti-locali`, non `studio-tartero:ricerca-fonti-locali`). Il worker le riceve indicate nel prompt di dispatch; se serve, il file è leggibile da bash sotto `<progetto>/.claude/skills/<nome>/SKILL.md`. Restano invece skill di plugin quelle non presenti in `.claude/skills/` (es. `studio-tartero:brand-studio`), che si invocano col prefisso.
+**Dove sta la skill.** `ricerca-fonti-locali` è una **skill condivisa**: vive in `_Common`, accanto alla cartella di progetto, non dentro il plugin. Una sola copia serve gli agenti Letteratura Tecnica, Guide Software e Normativa. Il worker la riceve indicata nel prompt di dispatch come **percorso del suo `SKILL.md`**, leggibile da bash sotto `../_Common/.claude/skills/ricerca-fonti-locali/SKILL.md` (il percorso relativo `../_Common/...` vale identico su Windows e Mac, come per `voice_directory`). Restano invece skill di plugin quelle non presenti in `_Common` (es. `studio-tartero:brand-studio`), che si invocano col prefisso.
 
 Per gli **output formattati** (`.docx`, `.xlsx`, `.pdf`) carica la skill `studio-tartero:brand-studio`.
 
@@ -269,7 +270,7 @@ Procedura per ricerche larghe (tutta la biblioteca), confronti tra testi/edizion
 
 | Worker             | Chiamata                                | Skill                                | Input da passare                                        |
 | ------------------ | --------------------------------------- | ------------------------------------ | ------------------------------------------------------- |
-| Ricerca (per file) | `Task(general-purpose, model="haiku")`  | `ricerca-fonti-locali` (skill di progetto in `.claude/skills/`) | percorso/i del testo; argomento/parole chiave (espanse col GLOSSARIO); titolo citabile (da MEMORY.md) |
+| Ricerca (per file) | `Task(general-purpose, model="haiku")`  | `../_Common/.claude/skills/ricerca-fonti-locali/SKILL.md` (skill condivisa) | percorso/i del testo; argomento/parole chiave (espanse col GLOSSARIO); titolo citabile (da MEMORY.md) |
 
 Ogni worker cerca con `bash` (`grep`/`pdftotext`/`unzip`/`pandoc`), estrae **solo** i passaggi pertinenti — **verbatim** per formule, simboli e tabelle — e li restituisce **citati** (titolo del testo da MEMORY.md + pagina o capitolo/sezione). Non carica interi testi, non riassume opere intere, non scrive nulla.
 

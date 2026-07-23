@@ -15,23 +15,26 @@ Cerchi nei testi archiviati nella cartella `normativa`, trovi online le normativ
 ## ARCHITETTURA
 
 ```
-Agente Normativa\       ← cartella di progetto montata nella sessione
- ├── CLAUDE.md         ← questo file
- ├── .claude\
- │    └── skills\      ← skill worker di progetto (sola lettura)
- │         ├── ricerca-fonti-locali\SKILL.md
- │         └── normativa-verifica-online\SKILL.md
- ├── scripts\
- │    └── scansiona.sh ← genera MANIFEST.tsv e stampa il delta (Passo B)
- ├── context\
- │    ├── MEMORY.md    ← log sessioni, novità, anomalie
- │    ├── MANIFEST.tsv ← inventario meccanico dell'archivio (NON leggere: si grep-pa)
- │    ├── INDICE-NORMATIVO.md ← metadati normativi dei file già aperti (per accumulo)
- │    └── GLOSSARIO.md ← termini tecnici e abbreviazioni (sola lettura)
- ├── normativa\        ← normative archiviate (sola lettura)
- │    └── [settore]\[sottosettore]\[file]
- └── output\
-      └── [YYYY-MM-DD]\ ← output generati nella sessione
+Progetti\                 ← contiene i progetti-agente e le risorse condivise
+ ├── _Common\             ← risorse condivise tra agenti (ACCANTO al progetto)
+ │    └── .claude\skills\
+ │         └── ricerca-fonti-locali\SKILL.md ← skill condivisa (worker di ricerca)
+ └── Agente Normativa\     ← cartella di progetto montata nella sessione
+      ├── CLAUDE.md       ← questo file
+      ├── .claude\
+      │    └── skills\    ← skill worker di progetto (sola lettura)
+      │         └── normativa-verifica-online\SKILL.md
+      ├── scripts\
+      │    └── scansiona.sh ← genera MANIFEST.tsv e stampa il delta (Passo B)
+      ├── context\
+      │    ├── MEMORY.md    ← log sessioni, novità, anomalie
+      │    ├── MANIFEST.tsv ← inventario meccanico dell'archivio (NON leggere: si grep-pa)
+      │    ├── INDICE-NORMATIVO.md ← metadati normativi dei file già aperti (per accumulo)
+      │    └── GLOSSARIO.md ← termini tecnici e abbreviazioni (sola lettura)
+      ├── normativa\        ← normative archiviate (sola lettura)
+      │    └── [settore]\[sottosettore]\[file]
+      └── output\
+           └── [YYYY-MM-DD]\ ← output generati nella sessione
 ```
 
 **Normative — cartella `normativa` montata.** La cartella `normativa` (sotto la cartella di progetto montata nella sessione) è **collegata alla sessione e leggibile direttamente da bash**. L'agente risolve a runtime il percorso bash corrispondente sotto `/sessions/<id-sessione>/mnt/.../normativa`. Sola lettura: non modificare i file.
@@ -66,12 +69,12 @@ I file archiviati si leggono **direttamente dalla cartella `normativa`, con bash
 
 Il **fan-out parallelo** conviene solo in due casi, ciascuno con la sua skill worker (sola lettura, restituiscono un delta strutturato; non scrivono nulla):
 
-- **Ricerca multi-norma in archivio** (più settori, ricerche larghe) → skill `ricerca-fonti-locali` — worker `bash` che cerca un argomento in un insieme di file locali montati (PDF/EPUB/DOCX) e restituisce i **passaggi citati**. Modello: **haiku**. Vedi `§ RICERCA MULTI-NORMA`.
+- **Ricerca multi-norma in archivio** (più settori, ricerche larghe) → skill `ricerca-fonti-locali` (**skill condivisa** in `..\_Common\.claude\skills\ricerca-fonti-locali\SKILL.md`, comune agli agenti Guide Software e Letteratura Tecnica) — worker `bash` che cerca un argomento in un insieme di file locali montati (PDF/EPUB/DOCX) e restituisce i **passaggi citati**. Modello: **haiku**. Vedi `§ RICERCA MULTI-NORMA`.
 - **Verifica di vigenza online di più norme** (o `confronta`) → skill `normativa-verifica-online` — worker web che verifica una norma sulle fonti ufficiali e restituisce il **RECORD NORMATIVO** completo con URL. Modello: **sonnet**. Vedi `§ VERIFICA VIGENZA ONLINE`.
 
-**Dove stanno le skill worker.** Le due skill worker sono **file di progetto** in `.claude\skills\<nome>\SKILL.md` (non più nel plugin `studio-tartero`). Percorso bash: `/sessions/<id-sessione>/mnt/<cartella-progetto>/.claude/skills/<nome>/SKILL.md`.
+**Dove stanno le skill worker.** Le due skill worker stanno in posti diversi: `normativa-verifica-online` è una **skill di progetto** in `.claude\skills\normativa-verifica-online\SKILL.md`, mentre `ricerca-fonti-locali` è una **skill condivisa** in `..\_Common\.claude\skills\ricerca-fonti-locali\SKILL.md` (una sola copia per gli agenti Normativa, Guide Software e Letteratura Tecnica; il percorso relativo `../_Common/...` vale identico su Windows e Mac, come per `voice_directory`). Nessuna delle due è nel plugin `studio-tartero`.
 
-> ⚠️ **Le skill di progetto in `.claude\skills\` non sono registrate come skill invocabili in Cowork** (stessa limitazione dei subagenti in `.claude\agents\`): non compaiono nell'elenco delle skill disponibili e lo strumento `Skill` non le risolve per nome. Perciò **non** dispacciarle per nome: nel prompt di `Task` passa al worker il **percorso assoluto del suo `SKILL.md`** e istruiscilo a leggerlo con `Read` come prima azione, prima di eseguire il compito.
+> ⚠️ **Né le skill di progetto in `.claude\skills\` né la skill condivisa in `..\_Common\.claude\skills\` sono registrate come skill invocabili in Cowork** (stessa limitazione dei subagenti in `.claude\agents\`): non compaiono nell'elenco delle skill disponibili e lo strumento `Skill` non le risolve per nome. Perciò **non** dispacciarle per nome: nel prompt di `Task` passa al worker il **percorso del suo `SKILL.md`** e istruiscilo a leggerlo con `Read` come prima azione, prima di eseguire il compito.
 
 Per gli **output formattati** (`.docx`, `.xlsx`) carica la skill `studio-tartero:brand-studio`.
 
@@ -289,7 +292,7 @@ awk -F'\t' '$5=="si"' context/MANIFEST.tsv \
 
 | Worker             | Chiamata                                | SKILL.md da far leggere al worker                       | Input da passare                                    |
 | ------------------ | --------------------------------------- | ------------------------------------------------------- | --------------------------------------------------- |
-| Ricerca (per file) | `Task(general-purpose, model="haiku")`  | `.claude/skills/ricerca-fonti-locali/SKILL.md` (percorso assoluto risolto) | percorso/i del file; argomento/parole chiave (espanse col GLOSSARIO); riferimento citabile (da MEMORY.md) |
+| Ricerca (per file) | `Task(general-purpose, model="haiku")`  | `../_Common/.claude/skills/ricerca-fonti-locali/SKILL.md` (skill condivisa) | percorso/i del file; argomento/parole chiave (espanse col GLOSSARIO); riferimento citabile (da MEMORY.md) |
 
 Ogni worker cerca con `bash`, estrae **solo** le disposizioni pertinenti (verbatim per gli articoli citati) con il riferimento (file + articolo/pagina), e non scrive nulla.
 

@@ -1,6 +1,6 @@
 ---
 name: ricerca-fonti-locali
-description: "Worker in SOLA LETTURA che cerca un argomento in uno o più file locali montati (PDF/EPUB/DOCX) — manuali software o testi di biblioteca — e restituisce i passaggi pertinenti CITATI come delta JSON. Da usare SOLO quando un orchestratore (Agente Guide Software o Agente Letteratura Tecnica in Cowork) lo dispaccia via Task per una ricerca multi-file o un confronto. NON usare per la normale consultazione di un singolo file (che l'orchestratore fa da sé): non scrive né modifica alcun file, non riassume opere intere sotto copyright, restituisce solo l'oggetto JSON con gli estratti e i loro riferimenti."
+description: "Worker in SOLA LETTURA che cerca un argomento in uno o più file locali montati (PDF/EPUB/DOCX) — manuali software, testi di biblioteca o norme d'archivio — e restituisce i passaggi pertinenti CITATI come delta JSON. Da usare SOLO quando un orchestratore (Agente Guide Software, Agente Letteratura Tecnica o Agente Normativa in Cowork) lo dispaccia via Task per una ricerca multi-file o un confronto. NON usare per la normale consultazione di un singolo file (che l'orchestratore fa da sé): non scrive né modifica alcun file, non riassume opere intere sotto copyright, restituisce solo l'oggetto JSON con gli estratti e i loro riferimenti."
 ---
 
 # Worker di ricerca — Fonti locali montate (PDF/EPUB/DOCX)
