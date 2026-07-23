@@ -1,0 +1,50 @@
+name: Allega asset alle release (one-off)
+
+# Workflow temporaneo: costruisce, per ogni release PER-AGENTE gia esistente,
+# un archivio zip con i soli file di quell'agente (cartella + _Common) allo
+# stato del suo tag, e lo allega come asset. Salta lo snapshot globale (il cui
+# "Source code" contiene gia tutto). Da eseguire una volta e poi rimuovere.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  attach:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # tutta la storia + i tag
+
+      - name: Costruisci e allega gli archivi
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh release list --repo "$REPO" --limit 200 --json tagName --jq '.[].tagName' \
+          | while read -r TAG; do
+              [ -z "$TAG" ] && continue
+              case "$TAG" in
+                */*) : ;;                                   # tag per-agente: procede
+                *) echo "Salto snapshot globale: $TAG"; continue ;;
+              esac
+              SLUG="${TAG%/*}"
+              case "$SLUG" in
+                gare)                FOLDER="Gare" ;;
+                normativa)           FOLDER="Normativa" ;;
+                guide-software)      FOLDER="Guide Software" ;;
+                letteratura-tecnica) FOLDER="Letteratura Tecnica" ;;
+                lavori)              FOLDER="Lavori" ;;
+                prezziari)           FOLDER="Prezziari" ;;
+                report-call)         FOLDER="Report Call" ;;
+                *) echo "Slug sconosciuto ($SLUG), salto"; continue ;;
+              esac
+              ASSET="${TAG//\//_}.zip"
+              git archive --format=zip -o "$ASSET" "$TAG" "$FOLDER" "_Common"
+              echo "Allego $ASSET a $TAG"
+              gh release upload "$TAG" "$ASSET" --repo "$REPO" --clobber
+            done

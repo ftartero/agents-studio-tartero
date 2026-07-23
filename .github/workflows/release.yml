@@ -126,8 +126,21 @@ jobs:
             echo "$COMMITS"
           } > release-notes.md
 
-          # --- 6. Crea la release (crea anche il tag se non esiste) --------
+          # --- 6. Prepara l'archivio con i SOLI file di questo rilascio ----
+          # (solo file versionati, presi allo stato del commit rilasciato)
+          ASSET="${TITLE}.zip"
+          if [ "$SLUG" = "studio" ]; then
+            git archive --format=zip -o "$ASSET" "$GITHUB_SHA"
+          else
+            # cartella dell'agente + risorse condivise _Common
+            git archive --format=zip -o "$ASSET" "$GITHUB_SHA" "$FOLDER" "_Common"
+          fi
+          echo "Archivio: $ASSET"; unzip -l "$ASSET" | tail -n +2 | head
+
+          # --- 7. Crea la release (crea anche il tag se non esiste) --------
+          # e allega l'archivio come asset scaricabile.
           gh release create "$TAG" \
             --target "$GITHUB_SHA" \
             --title "$TITLE" \
-            --notes-file release-notes.md
+            --notes-file release-notes.md \
+            "$ASSET"
